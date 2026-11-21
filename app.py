@@ -46,9 +46,21 @@ def create_app():
     def is_allowed_origin(origin: str | None) -> bool:
         if not origin:
             return False
-        web_origin = os.getenv("WEB_ORIGIN")
-        if web_origin and origin == web_origin.strip():
-            return True
+
+        def normalize_origin(value: str) -> str:
+            value = value.strip().strip('"').strip("'").rstrip("/")
+            if "://" not in value:
+                return value
+            scheme, rest = value.split("://", 1)
+            host = rest.split("/", 1)[0]
+            return f"{scheme.lower()}://{host.lower()}"
+
+        normalized_origin = normalize_origin(origin)
+        web_origins = os.getenv("WEB_ORIGIN", "")
+        for configured_origin in re.split(r"[,\s]+", web_origins):
+            if configured_origin and normalized_origin == normalize_origin(configured_origin):
+                return True
+
         if re.match(r"^http://127\.0\.0\.1(:\d+)?$", origin):
             return True
         if re.match(r"^http://localhost(:\d+)?$", origin):
